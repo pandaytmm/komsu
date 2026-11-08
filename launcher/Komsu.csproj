@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <AssemblyName>KOMSU</AssemblyName>
+    <RootNamespace>Komsu</RootNamespace>
+    <ApplicationIcon>icon.ico</ApplicationIcon>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <DebugType>none</DebugType>
+    <AllowedReferenceRelatedFileExtensions>none</AllowedReferenceRelatedFileExtensions>
+    <Version>1.0.0</Version>
+    <Product>KOMŞU — Bir Mahalle Sırrı</Product>
+    <Company>pandaytmm</Company>
+    <AssemblyTitle>KOMŞU</AssemblyTitle>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3485.44" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="..\index.html" LogicalName="web.index" />
+    <EmbeddedResource Include="..\css\style.css" LogicalName="web.css.style" />
+    <EmbeddedResource Include="..\js\utils.js" LogicalName="web.js.utils" />
+    <EmbeddedResource Include="..\js\audio.js" LogicalName="web.js.audio" />
+    <EmbeddedResource Include="..\js\voice.js" LogicalName="web.js.voice" />
+    <EmbeddedResource Include="..\js\world.js" LogicalName="web.js.world" />
+    <EmbeddedResource Include="..\js\player.js" LogicalName="web.js.player" />
+    <EmbeddedResource Include="..\js\ai.js" LogicalName="web.js.ai" />
+    <EmbeddedResource Include="..\js\ui.js" LogicalName="web.js.ui" />
+    <EmbeddedResource Include="..\js\story.js" LogicalName="web.js.story" />
+    <EmbeddedResource Include="..\js\main.js" LogicalName="web.js.main" />
+    <EmbeddedResource Include="..\vendor\three.min.js" LogicalName="web.vendor.three" />
+  </ItemGroup>
+
+</Project>

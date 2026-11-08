@@ -1,0 +1,14 @@
+# Derleme çıktıları
+dist/
+launcher/bin/
+launcher/obj/
+
+# Yerel günlükler
+launcher.log
+*.log
+
+# Editör / kullanıcı dosyaları
+.vs/
+.vscode/
+*.user
+*.suo
