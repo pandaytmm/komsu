@@ -22,6 +22,7 @@ internal static class Program
         ("web.js.ai", "js/ai.js"),
         ("web.js.ui", "js/ui.js"),
         ("web.js.story", "js/story.js"),
+        ("web.js.settings", "js/settings.js"),
         ("web.js.main", "js/main.js"),
         ("web.vendor.three", "vendor/three.min.js")
     };
@@ -97,7 +98,7 @@ internal sealed class GameForm : Form
                     {
                         await System.Threading.Tasks.Task.Delay(1800);
                         var probe = await _web.CoreWebView2.ExecuteScriptAsync(
-                            "JSON.stringify({title:document.title,game:!!window.GAME,ready:!!(window.GAME&&window.GAME.renderer),voice:!!window.VOICE,speech:!!(window.VOICE&&window.VOICE.supported)})");
+                            "JSON.stringify({title:document.title,game:!!window.GAME,ready:!!(window.GAME&&window.GAME.renderer),voice:!!window.VOICE,speech:!!(window.VOICE&&window.VOICE.supported),settings:!!window.SETTINGS,quality:window.SETTINGS?SETTINGS.quality:'-',shadow:!!(window.GAME&&GAME.renderer&&GAME.renderer.shadowMap.enabled)})");
                         File.WriteAllText(
                             Path.Combine(Path.GetDirectoryName(webRoot)!, "launcher.log"),
                             DateTime.Now.ToString("s") + " nav success=" + e.IsSuccess + " status=" + e.WebErrorStatus + " probe=" + probe);

@@ -17,7 +17,7 @@
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     <DebugType>none</DebugType>
     <AllowedReferenceRelatedFileExtensions>none</AllowedReferenceRelatedFileExtensions>
-    <Version>1.0.0</Version>
+    <Version>1.1.0</Version>
     <Product>KOMŞU — Bir Mahalle Sırrı</Product>
     <Company>pandaytmm</Company>
     <AssemblyTitle>KOMŞU</AssemblyTitle>
@@ -38,6 +38,7 @@
     <EmbeddedResource Include="..\js\ai.js" LogicalName="web.js.ai" />
     <EmbeddedResource Include="..\js\ui.js" LogicalName="web.js.ui" />
     <EmbeddedResource Include="..\js\story.js" LogicalName="web.js.story" />
+    <EmbeddedResource Include="..\js\settings.js" LogicalName="web.js.settings" />
     <EmbeddedResource Include="..\js\main.js" LogicalName="web.js.main" />
     <EmbeddedResource Include="..\vendor\three.min.js" LogicalName="web.vendor.three" />
   </ItemGroup>

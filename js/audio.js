@@ -4,10 +4,27 @@ window.SFX = (function () {
     ctx: null, master: null, ready: false, noiseBuf: null,
     ambGain: null, rainGain: null, chaseGain: null, humGain: null,
     danger: 0, chasing: false, heartTimer: 0, inside: false,
-    lastStepAt: 0, whisperTimer: 0
+    lastStepAt: 0, whisperTimer: 0,
+    volume: 0.62, ducked: false, muted: false,
+    comp: null, conv: null, wet: null,
+    windGain: null, windT: 0
   };
 
   function now() { return A.ctx ? A.ctx.currentTime : 0; }
+
+  function makeImpulse(seconds, decay) {
+    const rate = A.ctx.sampleRate;
+    const len = Math.floor(rate * seconds);
+    const buf = A.ctx.createBuffer(2, len, rate);
+    for (let ch = 0; ch < 2; ch++) {
+      const d = buf.getChannelData(ch);
+      for (let i = 0; i < len; i++) {
+        const t = i / len;
+        d[i] = (Math.random() * 2 - 1) * Math.pow(1 - t, decay);
+      }
+    }
+    return buf;
+  }
 
   function makeNoise(seconds) {
     const rate = A.ctx.sampleRate;
@@ -68,6 +85,7 @@ window.SFX = (function () {
     const wf = A.ctx.createBiquadFilter();
     wf.type = 'lowpass'; wf.frequency.value = 260;
     const wg = A.ctx.createGain(); wg.gain.value = 0.075;
+    A.windGain = wg;
     wind.connect(wf).connect(wg).connect(A.master);
     wind.start(t);
     // yağmur
@@ -155,8 +173,26 @@ window.SFX = (function () {
       try {
         A.ctx = new AC();
         A.master = A.ctx.createGain();
-        A.master.gain.value = 0.62;
-        A.master.connect(A.ctx.destination);
+        A.volume = window.SETTINGS ? SETTINGS.volume : 0.62;
+        A.master.gain.value = A.volume;
+
+        A.comp = A.ctx.createDynamicsCompressor();
+        A.comp.threshold.value = -16;
+        A.comp.knee.value = 14;
+        A.comp.ratio.value = 3;
+        A.comp.attack.value = 0.004;
+        A.comp.release.value = 0.28;
+        A.master.connect(A.comp);
+        A.comp.connect(A.ctx.destination);
+
+        A.conv = A.ctx.createConvolver();
+        A.conv.buffer = makeImpulse(2.6, 2.3);
+        A.wet = A.ctx.createGain();
+        A.wet.gain.value = 0.05;
+        A.master.connect(A.conv);
+        A.conv.connect(A.wet);
+        A.wet.connect(A.comp);
+
         A.noiseBuf = makeNoise(2.2);
         A.ready = true;
         startAmbient();
@@ -185,6 +221,21 @@ window.SFX = (function () {
       A.inside = v;
       if (!A.ready) return;
       A.rainGain.gain.setTargetAtTime(v ? 0.008 : 0.03, now(), 1.2);
+      if (A.wet) A.wet.gain.setTargetAtTime(v ? 0.16 : 0.05, now(), 1.0);
+      if (A.windGain) A.windGain.gain.setTargetAtTime(v ? 0.026 : 0.065, now(), 1.2);
+    },
+    setVolume(v) {
+      A.volume = U.clamp(Number(v) || 0, 0, 1);
+      if (!A.ready || A.muted || A.ducked) return;
+      A.master.gain.setTargetAtTime(A.volume, now(), 0.08);
+    },
+    toggleMute() {
+      A.muted = !A.muted;
+      if (A.ready) {
+        const target = A.muted ? 0.0001 : (A.ducked ? A.volume * 0.45 : A.volume);
+        A.master.gain.setTargetAtTime(target, now(), 0.08);
+      }
+      return A.muted;
     },
     footstep(run, crouch, inside) {
       if (!A.ready) return;
@@ -195,10 +246,31 @@ window.SFX = (function () {
       noiseBurst(inside ? 0.09 : 0.13, 'lowpass', inside ? 480 : 240, 1, vol);
       if (inside && !crouch) tone(run ? 88 : 64, 0.08, 'sine', run ? 0.035 : 0.018);
     },
-    aiStep(vol) {
+    aiStep(vol, pan) {
       if (!A.ready) return;
-      noiseBurst(0.16, 'lowpass', 190, 1, Math.min(0.12, vol), undefined, 0.01);
-      tone(58, 0.12, 'sine', Math.min(0.05, vol * 0.4));
+      const v = U.clamp(vol, 0, 0.14);
+      if (v < 0.002) return;
+      let dest = A.master;
+      if (A.ctx.createStereoPanner) {
+        const p = A.ctx.createStereoPanner();
+        p.pan.value = U.clamp(pan || 0, -0.9, 0.9);
+        p.connect(A.master);
+        dest = p;
+      }
+      noiseBurst(0.16, 'lowpass', 190, 1, v, undefined, 0.01, dest);
+      tone(58, 0.12, 'sine', Math.min(0.05, v * 0.4));
+    },
+    land() {
+      if (!A.ready) return;
+      noiseBurst(0.22, 'lowpass', 150, 1, 0.14, undefined, 0.005);
+      tone(50, 0.2, 'sine', 0.08, undefined, 32, 0.005);
+    },
+    breath(strength) {
+      if (!A.ready) return;
+      const s = U.clamp(strength, 0, 1);
+      const t = now();
+      noiseBurst(0.42, 'bandpass', 780, 1.4, 0.012 + s * 0.02, t, 0.12);
+      noiseBurst(0.3, 'bandpass', 1600, 2, 0.006 + s * 0.008, t + 0.05, 0.08);
     },
     heartbeat(strength) { if (A.ready) heartbeatPair(strength); },
     whisper() { whisper(); },
@@ -208,7 +280,9 @@ window.SFX = (function () {
     tick() { tick(); },
     duck(on) {
       if (!A.ready) return;
-      A.master.gain.setTargetAtTime(on ? 0.3 : 0.62, now(), on ? 0.08 : 0.35);
+      A.ducked = on;
+      const target = A.muted ? 0.0001 : (on ? A.volume * 0.45 : A.volume);
+      A.master.gain.setTargetAtTime(target, now(), on ? 0.08 : 0.35);
     },
     setChase(on) {
       if (!A.ready) return;
@@ -242,6 +316,7 @@ window.SFX = (function () {
       for (let i = 0; i < 6; i++) tone(1800 + Math.random() * 2200, 0.18 + Math.random() * 0.2, 'triangle', 0.02, now() + i * 0.02);
     },
     powerOn() {
+      if (!A.ready) return;
       const t = now();
       tone(60, 2.2, 'sawtooth', 0.03, t, 240);
       noiseBurst(0.4, 'bandpass', 300, 2, 0.06, t);
@@ -305,6 +380,15 @@ window.SFX = (function () {
       if (!A.ready) return;
       A.danger = U.lerp(A.danger, danger, Math.min(1, dt * 3));
       if (chasing !== A.chasing) this.setChase(chasing);
+      if (A.windGain) {
+        A.windT += dt;
+        if (A.windT > 0.5) {
+          A.windT = 0;
+          const base = A.inside ? 0.026 : 0.062;
+          const gust = base + Math.sin(now() * 0.21) * 0.014 + Math.sin(now() * 0.83 + 1.7) * 0.007;
+          A.windGain.gain.setTargetAtTime(Math.max(0.008, gust), now(), 0.8);
+        }
+      }
       if (A.danger > 0.25) {
         A.heartTimer -= dt;
         if (A.heartTimer <= 0) {

@@ -12,6 +12,7 @@ window.PLAYER = (function () {
     flashlightOn: true, focus: null,
     camera: null, spot: null, spotTarget: null,
     keys: {}, stepTimer: 0, bobT: 0, bobAmount: 0,
+    roll: 0, landKick: 0, breathT: 0, breathTimer: 0, fov: 72,
     throwCooldown: 0, bottleList: [], noiseCallback: null,
     inside: false, inBasement: false, totalSteps: 0
   };
@@ -31,6 +32,11 @@ window.PLAYER = (function () {
     const spot = new THREE.SpotLight(0xffe2b0, 1.55, 24, 0.46, 0.55, 1.1);
     spot.position.set(0.12, -0.08, 0.1);
     spot.castShadow = false;
+    spot.shadow.mapSize.set(1024, 1024);
+    spot.shadow.camera.near = 0.2;
+    spot.shadow.camera.far = 24;
+    spot.shadow.bias = -0.0025;
+    spot.shadow.normalBias = 0.02;
     const target = new THREE.Object3D();
     target.position.set(0, 0, -1);
     camera.add(target);
@@ -54,8 +60,9 @@ window.PLAYER = (function () {
 
   function look(dx, dy) {
     if (P.hidden) return;
-    P.yaw -= dx * 0.0022;
-    P.pitch -= dy * 0.0022;
+    const sens = window.SETTINGS ? SETTINGS.sens : 1;
+    P.yaw -= dx * 0.0022 * sens;
+    P.pitch -= dy * 0.0022 * sens;
     P.pitch = U.clamp(P.pitch, -1.45, 1.45);
   }
 
@@ -77,21 +84,43 @@ window.PLAYER = (function () {
     const cam = P.camera;
     if (!cam) return;
     const speed = Math.hypot(P.vel.x, P.vel.z);
+
+    let targetFov = 72;
+    if (!P.hidden) {
+      if (P.sprinting) targetFov = 78;
+      else if (P.crouch) targetFov = 69.5;
+    }
+    P.fov = U.lerp(P.fov, targetFov, Math.min(1, dt * 5.5));
+    if (Math.abs(cam.fov - P.fov) > 0.008) {
+      cam.fov = P.fov;
+      cam.updateProjectionMatrix();
+    }
+
     if (P.onGround && P.moving) P.bobT += dt * (speed > 4 ? 12 : 8);
     const targetBob = P.moving && P.onGround ? (speed > 4 ? 0.055 : 0.03) : 0;
     P.bobAmount = U.lerp(P.bobAmount, targetBob, Math.min(1, dt * 8));
     const bob = Math.sin(P.bobT) * P.bobAmount;
     const sway = Math.cos(P.bobT * 0.5) * P.bobAmount * 0.6;
 
+    P.landKick *= Math.exp(-dt * 9);
+    const tired = P.stamina < 30 ? 1 - P.stamina / 30 : 0;
+    if (tired > 0 && !P.sprinting && !P.hidden) P.breathT += dt * (1.5 + tired * 1.6);
+    const breathe = tired > 0 && !P.sprinting && !P.hidden ? Math.sin(P.breathT) * 0.009 * tired : 0;
+
     if (P.hidden && P.closetId) {
+      P.roll = U.lerp(P.roll, 0, Math.min(1, dt * 10));
       const c = WORLD.closets[P.closetId];
       if (c) {
         cam.position.set(c.pos.x, c.pos.y + 1.55, c.pos.z);
         cam.rotation.set(-0.03, c.yaw, 0);
       }
     } else {
-      cam.position.set(P.pos.x + sway * 0.2, P.pos.y + getEyeHeight() + bob, P.pos.z);
-      cam.rotation.set(P.pitch, P.yaw, 0);
+      const sinY = Math.sin(P.yaw), cosY = Math.cos(P.yaw);
+      const lateral = P.vel.x * cosY - P.vel.z * sinY;
+      const targetRoll = U.clamp(-lateral * 0.0075, -0.022, 0.022);
+      P.roll = U.lerp(P.roll, targetRoll, Math.min(1, dt * 7));
+      cam.position.set(P.pos.x + sway * 0.2, P.pos.y + getEyeHeight() + bob + breathe - P.landKick, P.pos.z);
+      cam.rotation.set(P.pitch, P.yaw, P.roll);
     }
     if (P.spot) {
       P.spot.visible = P.flashlightOn;
@@ -142,9 +171,17 @@ window.PLAYER = (function () {
       P.pos.y += P.vy * dt;
       const fh2 = WORLD.floorHeight(P.pos.x, P.pos.z, P.pos.y);
       if (P.pos.y <= fh2) {
+        const impact = -P.vy;
         P.pos.y = fh2;
         P.vy = 0;
         P.onGround = true;
+        if (impact > 2.5) {
+          P.landKick = Math.min(0.14, impact * 0.018);
+          if (impact > 4.4) {
+            SFX.land();
+            emitNoise(P.pos, 4.4);
+          }
+        }
       }
     }
     if (P.pos.y < -6) setPosition(-4.5, 0, -13.6, Math.PI);
@@ -307,9 +344,29 @@ window.PLAYER = (function () {
     SFX.keyUse();
   }
 
+  function setShadowQuality(q) {
+    if (!P.spot) return;
+    P.spot.castShadow = q !== 'low';
+    if (!P.spot.castShadow) return;
+    const size = q === 'high' ? 1024 : 512;
+    if (P.spot.shadow.mapSize.x !== size) {
+      P.spot.shadow.mapSize.set(size, size);
+      if (P.spot.shadow.map) {
+        P.spot.shadow.map.dispose();
+        P.spot.shadow.map = null;
+      }
+    }
+  }
+
   function update(dt, active) {
     P.throwCooldown = Math.max(0, P.throwCooldown - dt);
     updateBottles(dt);
+    P.breathTimer -= dt;
+    if (active && !P.hidden && P.stamina < 27 && P.breathTimer <= 0) {
+      const k = 1 - P.stamina / 27;
+      SFX.breath(k);
+      P.breathTimer = 1.45 - k * 0.4;
+    }
     if (P.hidden) {
       updateCamera(dt);
       if (window.UI && UI.setPrompt) UI.setPrompt(null);
@@ -337,13 +394,22 @@ window.PLAYER = (function () {
     P.vy = 0;
     P.yaw = Math.PI;
     P.pitch = 0;
+    P.roll = 0;
+    P.landKick = 0;
+    P.breathT = 0;
+    P.breathTimer = 0;
+    P.fov = 72;
+    if (P.camera) {
+      P.camera.fov = 72;
+      P.camera.updateProjectionMatrix();
+    }
     P.bottleList.forEach(b => { if (b.mesh.parent) b.mesh.parent.remove(b.mesh); });
     P.bottleList = [];
     if (window.UI) UI.setBottles(P.bottles);
   }
 
   return {
-    init, update, look, setPosition, getEye, getEyeHeight, reset,
+    init, update, look, setPosition, getEye, getEyeHeight, reset, setShadowQuality,
     throwBottle, toggleFlashlight, enterCloset, exitCloset,
     emitNoise,
     get pos() { return P.pos; },

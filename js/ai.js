@@ -80,6 +80,8 @@ window.AI = (function () {
     // el feneri
     const torch = U.cyl(0.045, 0.055, 0.22, 8, U.mat(0x3a3d40, { rough: 0.5, metal: 0.5 }));
     torch.rotation.x = Math.PI / 2; torch.position.set(0, -0.74, -0.1); armR.add(torch);
+    const torchGlow = U.glowSprite(0xffd9a4, 0.55, 0.32);
+    torchGlow.position.set(0, -0.74, -0.24); armR.add(torchGlow);
 
     flashLight = new THREE.SpotLight(0xffd9a4, 1.35, 16, 0.42, 0.55, 1.2);
     flashLight.position.set(0.34, 1.42, -0.05);
@@ -181,7 +183,13 @@ window.AI = (function () {
     A.stepTimer -= dt;
     if (A.stepTimer <= 0) {
       A.stepTimer = speed > 2.5 ? 0.34 : 0.55;
-      SFX.aiStep(speed > 2.5 ? 0.1 : 0.055);
+      const dx = A.pos.x - PLAYER.pos.x;
+      const dz = A.pos.z - PLAYER.pos.z;
+      const d = Math.hypot(dx, dz) || 1;
+      const att = U.clamp(1 - d / 30, 0.06, 1);
+      const rx = Math.cos(PLAYER.yaw), rz = -Math.sin(PLAYER.yaw);
+      const pan = (dx * rx + dz * rz) / d;
+      SFX.aiStep((speed > 2.5 ? 0.12 : 0.065) * att, U.clamp(pan, -0.9, 0.9));
     }
     return dist;
   }

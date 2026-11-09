@@ -3,6 +3,7 @@ window.UI = (function () {
   const el = {};
   let subtitleTimer = 0, toastTimer = 0, bannerTimer = 0, flashTimer = 0;
   let noteOpen = false, paused = false, caughtOpen = false, endingOpen = false, choiceOpen = false;
+  let settingsOpen = false;
   let choiceHandlers = null;
 
   function $(id) { return document.getElementById(id); }
@@ -17,7 +18,7 @@ window.UI = (function () {
       'choiceBLabel', 'choiceBDesc', 'choiceA', 'choiceB',
       'caughtScreen', 'caughtLine', 'endingScreen', 'endingKicker', 'endingTitle',
       'endingText', 'endingStats', 'endingRestart', 'loadingScreen', 'startBtn',
-      'resumeBtn', 'restartBtn'].forEach(id => { el[id] = $(id); });
+      'resumeBtn', 'restartBtn', 'proximity', 'settingsScreen'].forEach(id => { el[id] = $(id); });
     el.suspicionFill = el.suspicionBar.querySelector('i');
     el.staminaFill = el.staminaBar;
     el.caughtFill = document.querySelector('#caughtScreen .caughtBar i');
@@ -86,6 +87,16 @@ window.UI = (function () {
     el.suspicionText.textContent = chasing ? 'KOVALIYOR' : (v > 0.62 ? 'SENİ GÖRÜYOR' : 'ŞÜPHELENİYOR');
   }
 
+  function setProximity(v) {
+    if (!el.proximity) return;
+    el.proximity.style.opacity = String(U.clamp(v, 0, 1));
+  }
+
+  function settings(v) {
+    el.settingsScreen.classList.toggle('show', v);
+    settingsOpen = v;
+  }
+
   function dangerFlash() {
     el.dangerVignette.classList.add('on');
     clearTimeout(el.dangerVignette._t);
@@ -146,6 +157,7 @@ window.UI = (function () {
     el.caughtLine.textContent = line;
     el.caughtScreen.classList.add('show');
     caughtOpen = true;
+    setProximity(0);
     if (window.VOICE) VOICE.speak(line, 'KEMAL');
     if (el.caughtFill) {
       el.caughtFill.style.transition = 'none';
@@ -164,6 +176,7 @@ window.UI = (function () {
 
   function ending(data) {
     if (window.VOICE) VOICE.stop();
+    setProximity(0);
     el.endingKicker.textContent = data.kicker || 'SON';
     el.endingTitle.textContent = data.title;
     el.endingText.innerHTML = data.text;
@@ -219,14 +232,15 @@ window.UI = (function () {
 
   return {
     init, update, showHUD, chapter, objective, setItems, setEvidence, setFuses,
-    setBottles, setPrompt, setStamina, setSuspicion, dangerFlash, flash,
+    setBottles, setPrompt, setStamina, setSuspicion, setProximity, dangerFlash, flash,
     subtitle, toast, note, closeNote, choice, hideChoice, caught, hideCaught,
-    ending, hideEnding, pause, hiding, start, loading,
+    ending, hideEnding, pause, hiding, start, loading, settings,
     get noteOpen() { return noteOpen; },
     get paused() { return paused; },
     get caughtOpen() { return caughtOpen; },
     get endingOpen() { return endingOpen; },
     get choiceOpen() { return choiceOpen; },
+    get settingsOpen() { return settingsOpen; },
     get blocking() { return noteOpen || paused || caughtOpen || endingOpen || choiceOpen; }
   };
 })();

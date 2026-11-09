@@ -15,9 +15,33 @@ window.U = (function () {
     const t = new THREE.CanvasTexture(c);
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
     t.repeat.set(rx, ry);
-    t.anisotropy = 4;
+    t.anisotropy = 8;
     t.encoding = THREE.sRGBEncoding;
     return t;
+  }
+
+  function glowSprite(color = 0xffffff, size = 1, opacity = 0.5) {
+    const c = document.createElement('canvas');
+    c.width = c.height = 128;
+    const ctx = c.getContext('2d');
+    const g = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+    g.addColorStop(0, 'rgba(255,255,255,1)');
+    g.addColorStop(0.16, 'rgba(255,255,255,.8)');
+    g.addColorStop(0.42, 'rgba(255,255,255,.24)');
+    g.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(64, 64, 64, 0, Math.PI * 2);
+    ctx.fill();
+    const tex = new THREE.CanvasTexture(c);
+    tex.encoding = THREE.sRGBEncoding;
+    const mat = new THREE.SpriteMaterial({
+      map: tex, color, transparent: true, opacity,
+      blending: THREE.AdditiveBlending, depthWrite: false
+    });
+    const sprite = new THREE.Sprite(mat);
+    sprite.scale.set(size, size, 1);
+    return sprite;
   }
 
   function grain(ctx, w, h, amount, dark = true) {
@@ -294,5 +318,5 @@ window.U = (function () {
     return m;
   }
 
-  return { clamp, lerp, smooth, rand, pick, dist2, canvasTex, tex, mat, textured, box, plane, cyl, sph };
+  return { clamp, lerp, smooth, rand, pick, dist2, canvasTex, glowSprite, tex, mat, textured, box, plane, cyl, sph };
 })();

@@ -10,9 +10,12 @@
 <div id="game">
   <div id="canvasWrap"></div>
 
+  <div id="filmGrade"></div>
   <div id="vignette"></div>
+  <div id="proximity"></div>
   <div id="dangerVignette"></div>
   <div id="flash"></div>
+  <div id="grain"></div>
   <div id="hidingOverlay">
     <div class="slats"></div>
     <div class="hideHint">Saklanıyorsun — çıkmak için <b>E</b></div>
@@ -71,7 +74,7 @@
 
     <div id="bottomLeft">
       <div id="staminaWrap"><div id="staminaBar"></div></div>
-      <div class="keyHints">WASD hareket &nbsp;·&nbsp; Shift koş &nbsp;·&nbsp; C eğil &nbsp;·&nbsp; F fener &nbsp;·&nbsp; E etkileşim &nbsp;·&nbsp; G şişe &nbsp;·&nbsp; V konuşma</div>
+      <div class="keyHints">WASD hareket &nbsp;·&nbsp; Shift koş &nbsp;·&nbsp; C eğil &nbsp;·&nbsp; F fener &nbsp;·&nbsp; E etkileşim &nbsp;·&nbsp; G şişe &nbsp;·&nbsp; V konuşma &nbsp;·&nbsp; M ses</div>
     </div>
 
     <div id="chapterBanner"><div class="cbLine"></div><div id="cbTitle"></div><div id="cbSub"></div><div class="cbLine"></div></div>
@@ -119,7 +122,8 @@
         <button id="voiceToggle" class="diffBtn active">AÇIK</button>
       </div>
       <button id="startBtn">OYUNA BAŞLA</button>
-      <div class="startFoot">Kulaklık önerilir. Komşu duyar. Komşu görür.</div>
+      <button id="startSettingsBtn" class="ghost slim">AYARLAR</button>
+      <div class="startFoot">Kulaklık önerilir. Komşu duyar. Komşu görür. <span class="version">v1.1</span></div>
     </div>
   </div>
 
@@ -128,10 +132,42 @@
       <h2>DURAKLATILDI</h2>
       <p class="muted">Kemal Bey bekliyor.</p>
       <button id="resumeBtn" class="primary">DEVAM ET</button>
+      <button id="pauseSettingsBtn" class="ghost">AYARLAR</button>
       <button id="restartBtn" class="ghost">BÖLÜMÜ YENİDEN BAŞLAT</button>
       <div class="pauseKeys">
-        WASD hareket · Shift koş · C eğil · F fener · E etkileşim · G şişe · V konuşma · Space zıpla
+        WASD hareket · Shift koş · C eğil · F fener · E etkileşim · G şişe · V konuşma · M ses · Space zıpla
       </div>
+    </div>
+  </div>
+
+  <div id="settingsScreen" class="overlay">
+    <div class="panelCard settingsCard">
+      <div class="kicker">KOMŞU · AYARLAR</div>
+      <h2>AYARLAR</h2>
+      <div class="setRow">
+        <label for="sensRange">FARE HASSASİYETİ <span id="sensVal">1.00×</span></label>
+        <input id="sensRange" class="rng" type="range" min="0.3" max="2.2" step="0.05" value="1" />
+      </div>
+      <div class="setRow">
+        <label for="volRange">SES SEVİYESİ <span id="volVal">62%</span></label>
+        <input id="volRange" class="rng" type="range" min="0" max="100" step="1" value="62" />
+      </div>
+      <div class="setRow">
+        <label>GRAFİK KALİTESİ</label>
+        <div class="qualityRow">
+          <button class="diffBtn qBtn" data-q="low">DÜŞÜK</button>
+          <button class="diffBtn qBtn" data-q="medium">ORTA</button>
+          <button class="diffBtn qBtn active" data-q="high">YÜKSEK</button>
+        </div>
+      </div>
+      <div class="setRow">
+        <label>FİLM GRENİ</label>
+        <div class="qualityRow">
+          <button id="grainToggle" class="diffBtn active">AÇIK</button>
+        </div>
+      </div>
+      <p class="setNote">Grafik kalitesi gölge çözünürlüğünü ve çözünürlük ölçeğini değiştirir. Değişiklikler anında uygulanır.</p>
+      <button id="settingsClose" class="primary">GERİ</button>
     </div>
   </div>
 
@@ -201,6 +237,7 @@
 <script src="js/ai.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/story.js"></script>
+<script src="js/settings.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

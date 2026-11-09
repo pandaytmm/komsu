@@ -10,6 +10,7 @@
   function $(id) { return document.getElementById(id); }
 
   function init() {
+    SETTINGS.init();
     const canvasWrap = $('canvasWrap');
 
     const vw = Math.max(1, window.innerWidth || 1280);
@@ -36,6 +37,7 @@
     game.camera = camera;
 
     addStars(scene);
+    addMoon(scene);
     WORLD.build(scene);
     UI.init();
     PLAYER.init(camera);
@@ -43,8 +45,13 @@
     STORY.init();
     VOICE.init();
 
+    applyQuality(SETTINGS.quality);
+    SETTINGS.onChange('quality', applyQuality);
+    SETTINGS.onChange('volume', v => SFX.setVolume(v));
+
     ctxUI();
     bindButtons();
+    bindSettings();
     bindInput();
     onResize();
 
@@ -72,6 +79,89 @@
     const mat = new THREE.PointsMaterial({ color: 0x9db4cc, size: 0.16, transparent: true, opacity: 0.55, depthWrite: false });
     const stars = new THREE.Points(geo, mat);
     scene.add(stars);
+  }
+
+  function addMoon(scene) {
+    const halo = U.glowSprite(0xdfe9f7, 34, 0.24);
+    halo.position.set(-54, 37, -52);
+    halo.material.fog = false;
+    scene.add(halo);
+    const core = U.glowSprite(0xf3f7ff, 6.5, 0.85);
+    core.position.copy(halo.position);
+    core.material.fog = false;
+    scene.add(core);
+  }
+
+  function applyQuality(q) {
+    if (!game.renderer) return;
+    game.quality = q;
+    const dpr = Math.min(window.devicePixelRatio || 1, q === 'high' ? 2 : (q === 'medium' ? 1.5 : 1));
+    game.renderer.setPixelRatio(dpr);
+    const vw = Math.max(1, window.innerWidth || 1280);
+    const vh = Math.max(1, window.innerHeight || 720);
+    game.renderer.setSize(vw, vh);
+    game.renderer.shadowMap.enabled = q !== 'low';
+
+    if (WORLD.moon) {
+      WORLD.moon.castShadow = q !== 'low';
+      const size = q === 'high' ? 2048 : 1024;
+      if (WORLD.moon.shadow.mapSize.x !== size) {
+        WORLD.moon.shadow.mapSize.set(size, size);
+        if (WORLD.moon.shadow.map) {
+          WORLD.moon.shadow.map.dispose();
+          WORLD.moon.shadow.map = null;
+        }
+      }
+    }
+    if (PLAYER.setShadowQuality) PLAYER.setShadowQuality(q);
+    if (WORLD.dust) WORLD.dust.visible = q !== 'low';
+  }
+
+  function bindSettings() {
+    const sensRange = $('sensRange'), sensVal = $('sensVal');
+    const volRange = $('volRange'), volVal = $('volVal');
+    const qBtns = Array.from(document.querySelectorAll('.qBtn'));
+    const grainToggle = $('grainToggle');
+
+    function sync() {
+      sensRange.value = SETTINGS.sens;
+      sensVal.textContent = SETTINGS.sens.toFixed(2) + '×';
+      volRange.value = Math.round(SETTINGS.volume * 100);
+      volVal.textContent = Math.round(SETTINGS.volume * 100) + '%';
+      qBtns.forEach(b => b.classList.toggle('active', b.dataset.q === SETTINGS.quality));
+      grainToggle.textContent = SETTINGS.grain ? 'AÇIK' : 'KAPALI';
+      grainToggle.classList.toggle('active', SETTINGS.grain);
+    }
+
+    sensRange.addEventListener('input', e => {
+      SETTINGS.setSens(e.target.value);
+      sensVal.textContent = Number(e.target.value).toFixed(2) + '×';
+    });
+    volRange.addEventListener('input', e => {
+      const v = Number(e.target.value) / 100;
+      SETTINGS.setVolume(v);
+      volVal.textContent = Math.round(v * 100) + '%';
+    });
+    qBtns.forEach(btn => btn.addEventListener('click', () => {
+      SETTINGS.setQuality(btn.dataset.q);
+      qBtns.forEach(b => b.classList.toggle('active', b === btn));
+    }));
+    grainToggle.addEventListener('click', () => {
+      const on = SETTINGS.setGrain(!SETTINGS.grain);
+      grainToggle.textContent = on ? 'AÇIK' : 'KAPALI';
+      grainToggle.classList.toggle('active', on);
+    });
+
+    const open = () => {
+      sync();
+      if (document.pointerLockElement) document.exitPointerLock();
+      UI.settings(true);
+    };
+    $('startSettingsBtn').addEventListener('click', open);
+    $('pauseSettingsBtn').addEventListener('click', open);
+    $('settingsClose').addEventListener('click', () => UI.settings(false));
+
+    sync();
   }
 
   function ctxUI() {
@@ -184,6 +274,10 @@
       if (window.DEBUG) handleDebugKeys(e);
 
       if (e.code === 'Escape') {
+        if (UI.settingsOpen) {
+          UI.settings(false);
+          return;
+        }
         if (UI.noteOpen) {
           UI.closeNote();
           if (!UI.choiceOpen && !STORY.ending) setTimeout(requestLock, 30);
@@ -229,6 +323,9 @@
         const on = VOICE.toggle();
         UI.toast(on ? 'Konuşma açık — Kemal seni duyuyor.' : 'Konuşma kapalı.');
         if (on) VOICE.speak('Seni duyuyorum.', 'KEMAL');
+      } else if (e.code === 'KeyM') {
+        const muted = SFX.toggleMute();
+        UI.toast(muted ? 'Sesler kapatıldı.' : 'Sesler açıldı.');
       }
     });
   }
@@ -289,6 +386,8 @@
     if (STORY.started || game.started) {
       UI.setStamina(PLAYER.stamina);
       UI.setSuspicion(AI.danger, AI.chasing);
+      const prox = (game.started && !STORY.ending && !UI.blocking) ? AI.danger : 0;
+      UI.setProximity(AI.chasing ? Math.max(0.78, prox) : prox * 0.55);
     }
 
     if (active && PLAYER.focus && !PLAYER.hidden) UI.setPrompt(PLAYER.focus.prompt);

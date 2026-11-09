@@ -33,6 +33,7 @@ window.WORLD = (function () {
     M.plastic = new THREE.MeshStandardMaterial({ color: 0xbfc4c2, roughness: 0.9, transparent: true, opacity: 0.18, side: THREE.DoubleSide, depthWrite: false });
     M.glow = U.mat(0xffffff, { emissive: 0xffe2a8, emissiveIntensity: 1.2, rough: 1 });
     M.glowBlue = U.mat(0xffffff, { emissive: 0x9fc1e8, emissiveIntensity: 0.55, rough: 1 });
+    M.bulbOff = U.mat(0x2a2620, { rough: 1 });
     M.invisible = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
     M.screen = U.mat(0x0a0d10, { rough: 0.25, metal: 0.2 });
 
@@ -132,6 +133,8 @@ window.WORLD = (function () {
     const crossH = U.box(w, 0.05, 0.06, frameMat); g.add(crossH);
     const glass = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.12, h - 0.12), M.glowBlue);
     glass.position.z = -0.01; g.add(glass);
+    const halo = U.glowSprite(0x9fc1e8, w * 1.55, 0.12);
+    halo.position.z = -0.03; g.add(halo);
     if (boarded) {
       for (let i = 0; i < 3; i++) {
         const p = U.box(w + 0.3, 0.16, 0.05, M.woodPlank || U.mat(0x5c4a35));
@@ -665,6 +668,8 @@ window.WORLD = (function () {
     pole.position.set(15, 2.2, 6); WORLD.group.add(pole);
     const lampHead = U.box(0.4, 0.12, 0.3, M.glowBlue);
     lampHead.position.set(14.8, 4.5, 6); WORLD.group.add(lampHead);
+    const lampHalo = U.glowSprite(0x9fc1e8, 2.8, 0.42);
+    lampHalo.position.set(14.8, 4.48, 6); WORLD.group.add(lampHalo);
     const lampLight = new THREE.PointLight(0x9fc1e8, 0.7, 18, 2);
     lampLight.position.set(14.8, 4.3, 6); WORLD.group.add(lampLight);
     WORLD.windowLights.push(lampLight);
@@ -728,6 +733,8 @@ window.WORLD = (function () {
     lamp.position.set(sx + 1.1, 1.8, sz); WORLD.group.add(lamp);
     const lampBody = U.box(0.16, 0.24, 0.16, M.glow);
     lampBody.position.set(sx + 1.1, 1.85, sz); WORLD.group.add(lampBody);
+    const lampHalo = U.glowSprite(0xffb06a, 1.05, 0.34);
+    lampHalo.position.set(sx + 1.1, 1.84, sz); WORLD.group.add(lampHalo);
   }
 
   function buildGroundFloor() {
@@ -1182,6 +1189,8 @@ window.WORLD = (function () {
     const wire2 = U.box(0.015, 0.7, 0.015, M.metalDark); wire2.position.set(1, -0.75, -11.5); WORLD.group.add(wire2);
     const bulb2 = U.sph(0.08, M.glow); bulb2.position.set(1, -1.13, -11.5); WORLD.group.add(bulb2);
     WORLD.basementBulb = bulb2;
+    const basementHalo = U.glowSprite(0xff9a66, 1.5, 0.34);
+    basementHalo.position.set(1, -1.13, -11.5); WORLD.group.add(basementHalo);
     // bodrum ışığı zayıf kırmızı
     const bl = new THREE.PointLight(0xcc5533, 0.55, 8, 2);
     bl.position.set(1, -1.4, -12); WORLD.group.add(bl);
@@ -1265,6 +1274,19 @@ window.WORLD = (function () {
       const l = new THREE.PointLight(color, 0, dist, 2);
       l.position.set(x, y, z);
       scene.add(l);
+
+      const cord = U.cyl(0.008, 0.008, 0.6, 5, M.metalDark, false);
+      cord.position.set(x, y + 0.36, z); WORLD.group.add(cord);
+      const shade = U.cyl(0.1, 0.2, 0.14, 10, U.mat(0x29241d, { rough: 0.92 }), false);
+      shade.position.set(x, y + 0.13, z); WORLD.group.add(shade);
+      const bulb = U.sph(0.045, M.bulbOff, false);
+      bulb.position.set(x, y, z); WORLD.group.add(bulb);
+      const glow = U.glowSprite(color, 1.35, 0);
+      glow.position.set(x, y, z); glow.visible = false; WORLD.group.add(glow);
+
+      l.userData.bulb = bulb;
+      l.userData.glow = glow;
+      l.userData.glowBase = 0.34;
       WORLD.practicalLights.push({ light: l, base: intensity, name, flicker: Math.random() < 0.35 });
       WORLD.lights[name] = l;
       return l;
@@ -1391,12 +1413,20 @@ window.WORLD = (function () {
       SFX.powerOn();
       if (WORLD.fuseLED) WORLD.fuseLED.material = U.mat(0x0d3a12, { emissive: 0x33ff66, emissiveIntensity: 2.2 });
       WORLD.practicalLights.forEach((p, i) => {
-        setTimeout(() => { if (p.light) p.light.intensity = p.base * (0.85 + Math.random() * 0.15); }, 900 + i * 260);
+        setTimeout(() => {
+          if (!p.light) return;
+          p.light.intensity = p.base * (0.85 + Math.random() * 0.15);
+          if (p.light.userData.bulb) p.light.userData.bulb.material = M.glow;
+        }, 900 + i * 260);
       });
       if (WORLD.basementLight) WORLD.basementLight.intensity = 1.1;
       if (WORLD.basementBulb) WORLD.basementBulb.material = M.glow;
     } else {
-      WORLD.practicalLights.forEach(p => { p.light.intensity = 0; });
+      WORLD.practicalLights.forEach(p => {
+        p.light.intensity = 0;
+        if (p.light.userData.bulb) p.light.userData.bulb.material = M.bulbOff;
+        if (p.light.userData.glow) p.light.userData.glow.visible = false;
+      });
     }
   };
 
@@ -1417,6 +1447,14 @@ window.WORLD = (function () {
       if (p.flicker && p.light.intensity > 0.01) {
         const f = 0.82 + 0.18 * Math.sin(t * 17 + p.base * 30) * Math.sin(t * 3.3);
         p.light.intensity = p.base * f;
+      }
+      const glow = p.light.userData.glow;
+      if (glow) {
+        const k = p.light.intensity > 0.01 ? U.clamp(p.light.intensity / p.base, 0, 1.35) : 0;
+        glow.visible = k > 0.02;
+        if (glow.visible) {
+          glow.material.opacity = (p.light.userData.glowBase || 0.34) * k * (0.94 + 0.06 * Math.sin(t * 9 + p.base * 17));
+        }
       }
     }
     // yağmur
